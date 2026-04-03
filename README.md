@@ -8,7 +8,7 @@ Here are the antenna I've made and used so far, its been a fun topic to learn ab
 <img width="1215" height="1620" alt="image" src="https://github.com/user-attachments/assets/aba029b4-a283-4b29-a763-1aef438b4dbb" />
 
 # I/Q data
-The RTL-SDR Blog v4 comes with some handy tools, one in particular is rtl_sdr.exe. You can find these tools [here](https://github.com/rtlsdrblog/rtl-sdr-blog/releases). The official RTL-SDR website also has some helpful tutorials on getting everything set up. I recommend NOT using a Windows PC for ANYTHING related to RTL-SDR unless you want a headache, it will just be so much easier on Linux.  
+The RTL-SDR Blog v4 comes with some handy tools, one in particular is rtl_sdr.exe. You can find these tools [here](https://github.com/rtlsdrblog/rtl-sdr-blog/releases) but i also included the tools I used in this repo. The official RTL-SDR website also has some helpful tutorials on getting everything set up. I recommend NOT using a Windows PC for ANYTHING related to RTL-SDR unless you want a headache, it will just be so much easier on Linux.  
 Unfortunately I did this on Windows, I used wsl to get dump1090 running in an Ubuntu terminal, I also played around with SDR# to test my antenna builds directly on Windows, you can see this working in the first cantenna image listening to 1090 MHz frequencies. But all that I really need to capture raw data is the official tools, specifically rtl_sdr.exe, everything else is just to confirm that I can in fact receive and decode ADS-B signals with my current physical setup.   
 This is the decoded data I get using dump1090 in wsl Ubuntu.  
 <img width="1724" height="916" alt="image" src="https://github.com/user-attachments/assets/92e7d700-a727-4e92-af65-5056fce21daf" />  
