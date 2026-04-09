@@ -28,23 +28,23 @@ int main()
         file.close();
 
         // buffer contains whole file
-        // print first 5000 magnitudes
-        for(size_t i = 34240; i < 2000+34240; i += 2) {
+        std::ofstream writefile;
+        writefile.open("adsb_norm.txt");
+        for(size_t i = 0; i < len; i += 2) {
             // read two at a time (I and Q)
             float I = (float)buffer[i] - 127.5f;
             float Q = (float)buffer[i+1] - 127.5f;
             float mag = sqrtf(I*I + Q*Q);
-            //165.362 127.932
-            std::cout << "line " << i << ", ";
-            std::cout << "I = " << I << ", ";
-            std::cout << "Q = " << Q << ", ";
-            std::cout << "magnitude = " << (float)(mag) << std::endl;
-            
-           
+            // write magnitude, one per line
+            writefile << (int)mag << std::endl;
 
+            //165.362 127.932
+            //std::cout << "line " << i << ", ";
+            //std::cout << "I = " << I << ", ";
+            //std::cout << "Q = " << Q << ", ";
+            // std::cout << "magnitude = " << (float)(mag) << std::endl;
         }
-        //std::ofstream writefile;
-        //writefile.open("adsb_norm.txt");
+        writefile.close();
 
         delete[] buffer;
     }
