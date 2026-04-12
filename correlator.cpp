@@ -9,7 +9,7 @@
 #include <cmath>
 #include <unordered_map>
 
-#define THRESHOLD_FACTOR 4
+#define THRESHOLD_FACTOR 1
 #define MIN_FRAME 112
 
 uint32_t modes_checksum_table[112] = {
@@ -72,7 +72,8 @@ int main()
     int bit_index = 0;
     int first_half = 0;
     std::string callsign;
-    float speed, heading;
+    double speed, heading;
+    int altitude;
     std::unordered_map<int, Aircraft> aircraft_map;
 
     double lat = 0, lon = 0;
@@ -98,6 +99,7 @@ int main()
                         int ca = extract_bits(frame, 3, 5);
                         // ICAO ADDRESS
                         int ICAO_address = extract_bits(frame, 24, 8);
+                        Aircraft& ac = aircraft_map[ICAO_address]; // maybe add everything to Aircraft instead, may be pointless
                         // type code
                         int tc = extract_bits(frame, 5, 32);
                         // parity/interrogator ID
@@ -141,8 +143,17 @@ int main()
                                     callsign += c;
                                 }
                             } else if(tc >= 9 && tc <= 18) {
-                                Aircraft& ac = aircraft_map[ICAO_address];
-                                int flag = extract_bits(frame, 1, 53);
+                                int alt_bits = extract_bits(frame, 12, 40);
+                                int Qbit = (alt_bits >> 4) & 1; // Qbit determines if alt is in 25 foot or 100 foot increments
+                                int n = 0;
+                                if(Qbit) {
+                                    // Qbit i think will always be 1, if Qbit is 0 then just ignore
+                                    // remove Qbit
+                                    n = ((alt_bits & 0x0FE0) >> 1) | (alt_bits & 0x000F);
+                                }
+                                altitude = (n * 25) - 100;
+
+                                int flag = extract_bits(frame, 1, 53); // even or odd flag
                                 if(!flag) {
                                     // even
                                     ac.lateven = extract_bits(frame, 17, 54);
@@ -231,7 +242,7 @@ int main()
                             } else if (lat != 0 && lon != 0) {
                                 std::cout << "lat " << std::fixed << std::setprecision(6) << lat << std::endl; // last two decimal figures dont really make much difference 
                                 std::cout << "lon " << std::fixed << std::setprecision(6) << lon << std::endl;
-
+                                std::cout << "baro altitude " << altitude << std::endl;
                             }
                             std::cout << std::endl;
                         }
