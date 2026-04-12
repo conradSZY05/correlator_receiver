@@ -67,6 +67,7 @@ int main()
     float threshold;
     
     //decoding
+    int decoded = 0;
     std::bitset<MIN_FRAME> frame;
     int bit_index = 0;
     int first_half = 0;
@@ -120,6 +121,7 @@ int main()
                         if(crc != pi) { // invalid
                             valid_signal = false;
                         } else {
+                            decoded++;
                             callsign = "";
                             speed = 0.f;
                             heading = 0.f;
@@ -151,7 +153,7 @@ int main()
                                     ac.lonodd = extract_bits(frame, 17, 71);
                                 }
                                 
-                                if(ac.lateven != 0 and ac.latodd != 0) {
+                                if(ac.lateven != 0 && ac.latodd != 0) {
                                     // normalise
                                     double YZeven = (double)ac.lateven / 131072;
                                     double XZeven = (double)ac.loneven / 131072;
@@ -279,5 +281,7 @@ int main()
         }
     }
     
+    std::cout << std::endl << "decoded " << decoded << " signals.";
+
     return 0;
 }
