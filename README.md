@@ -36,4 +36,4 @@ You can see that different decoded signals have different sets of decoded data, 
 
 The CRC check is essential for verifying that the decoded signal was not corrupted due to noise, weak signals, overlapping transmissions etc. Helpful sources I used for learning these essential things are [here ](https://mode-s.org/1090mhz/content/ads-b/1-basics.html) and the dump1090 source code which was a very helpful example.  
   
-The C++ examples I wrote decode around 89 signals per 2 million raw I/Q samples.  
+The C++ examples I wrote decode around 89 signals per 2 million raw I/Q samples, although this number varies quite a lot depending on what area you collect the samples in. 
