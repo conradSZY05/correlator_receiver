@@ -125,8 +125,43 @@ int main()
         return 0;
     } 
 
-    // main loop
-    std::ifstream readfile("adsb_norm.txt");
+    // main loop for sending raw iq data
+    std::ifstream file("adsb_capture.bin", std::ios::binary);
+    if(file) {
+        // file length
+        file.seekg(0, file.end);
+        size_t len = file.tellg();
+        file.seekg(0, file.beg);
+
+        uint8_t* buffer = new uint8_t[len]; // cant use char because itll read it as signed
+
+        std::cout << "reading... " << len << " characters" << std::endl;
+
+        file.read((char*)buffer, len);
+
+        if(file)
+            std::cout << "file read successfully" << std::endl;
+        else
+            std::cout << "error only " << file.gcount() << " could be read" << std::endl;
+
+        file.close();
+
+        // buffer contains whole file
+        std::cout << std::endl << "press Enter to start sending: ";
+        while(_getch() != 13) {}
+        std::cout << std::endl << "sending... ";
+        for(size_t i = 0; i < len; i++) {
+            DWORD numBytesWritten;
+            uint8_t data = buffer[i]; 
+            WriteFile(hCommPort, &data, 1, &numBytesWritten, NULL);
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+        CloseHandle(hCommPort);
+        delete[] buffer;
+    }
+
+    // main loop for sending magnitudes
+    /*std::ifstream readfile("adsb_norm.txt");
     int valueToSend;
     std::cout << std::endl << "press Enter to start sending: ";
     while(_getch() != 13) {}
@@ -135,9 +170,8 @@ int main()
         DWORD numBytesWritten;
         uint8_t byteToSend = (uint8_t)valueToSend;
         WriteFile(hCommPort, &byteToSend, 1, &numBytesWritten, NULL);
-        std::this_thread::sleep_for(std::chrono::seconds(1));
     }
-    CloseHandle(hCommPort);
+    CloseHandle(hCommPort);*/
 
     return 0;
 }
