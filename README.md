@@ -37,3 +37,10 @@ You can see that different decoded signals have different sets of decoded data, 
 The CRC check is essential for verifying that the decoded signal was not corrupted due to noise, weak signals, overlapping transmissions etc. Helpful sources I used for learning these essential things are [here ](https://mode-s.org/1090mhz/content/ads-b/1-basics.html) and the dump1090 source code which was a very helpful example.  
   
 The C++ examples I wrote decode around 89 signals per 2 million raw I/Q samples, although this number varies quite a lot depending on what area you collect the samples in. 
+
+# Implementation on the Basys3  
+The implementation on the Basys 3 follows the same pattern as two programs written in C++, correlator.cpp and iqnorm.cpp. First raw I/Q data is sampled using the official RTL SDR software, it is sent over UART using send_data.cpp to the FPGA.   
+  
+The FPGA then normalises the I/Q data and produces magnitude equivalents. This is then passed to a preamble detector, which just returns a true or false if a preamble has been detected within the last 16 magnitude samples and indicates to the next module to start reading and decoding the next 224 magnitude values (convert to 112 bits -> split 112 bit frame into the sections described above -> use the information in the frame to determine what message is being sent -> extract the decoded message -> save whatever has been decoded and display it on a monitor via VGA).  
+
+The main difference in the Basys3 implementation being that it is real time, that is, a laptop samples raw I/Q data via a TCP port, splits the data into packets and then sends the packets rather than just sampling storing one file at a time as was implemented in the C++ version. 
