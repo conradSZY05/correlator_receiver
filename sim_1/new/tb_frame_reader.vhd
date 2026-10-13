@@ -31,15 +31,15 @@ architecture sim of tb_frame_reader is
     
     signal icao : std_logic_vector(23 downto 0);
     signal callsign_w : string(1 to 8);
-    signal lat_w, lon_w : std_logic_vector(16 downto 0);
+    signal lat_w, lon_w : signed(27 downto 0);
     signal speed_w : unsigned(9 downto 0);
-    signal alt_w : std_logic_vector(12 downto 0);
+    signal alt_w : unsigned(16 downto 0);
     signal heading_w : unsigned(9 downto 0);
     
     signal callsign_r : string(1 to 8);
-    signal lat_r, lon_r : std_logic_vector(16 downto 0);
+    signal lat_r, lon_r : signed(27 downto 0);
     signal speed_r : unsigned(9 downto 0);
-    signal alt_r : std_logic_vector(12 downto 0);
+    signal alt_r : unsigned(16 downto 0);
     signal heading_r : unsigned(9 downto 0);
     
 begin
@@ -111,7 +111,7 @@ begin
     clk <= not clk after CLK_PERIOD / 2;
     
     process
-        file f : t_char_file open read_mode is "C:/Users/conra/Release(1)/x64/adsb_test_realistic.bin";
+        file f : t_char_file open read_mode is "/home/t460s/correlator/src/adsb_test_realistic.bin";
         variable c : character;
         variable byte_v : std_logic_vector(7 downto 0);
         variable read_arr : t_byte_arr(0 to 1499999);
