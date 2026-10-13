@@ -16,13 +16,13 @@ entity flight_table is
         
         icao : in std_logic_vector(23 downto 0);
         callsign_w : in string(1 to 8);
-        lat_w, lon_w : in std_logic_vector(16 downto 0);
-        alt_w : in std_logic_vector(12 downto 0);
+        lat_w, lon_w : in signed(27 downto 0);
+        alt_w : in unsigned(16 downto 0);
         speed_w : in unsigned(9 downto 0);
         heading_w : in unsigned(9 downto 0);
         callsign_r : out string(1 to 8);
-        lat_r, lon_r : out std_logic_vector(16 downto 0);
-        alt_r : out std_logic_vector(12 downto 0);
+        lat_r, lon_r : out signed(27 downto 0);
+        alt_r : out unsigned(16 downto 0);
         speed_r : out unsigned(9 downto 0);
         heading_r : out unsigned(9 downto 0)
         
@@ -45,8 +45,8 @@ architecture rtl of flight_table is
         valid : std_logic;
         icao : std_logic_vector(23 downto 0); --key
         callsign : string(1 to 8);
-        lat, lon : std_logic_vector(16 downto 0);
-        alt : std_logic_vector(12 downto 0);
+        lat, lon : signed(27 downto 0);
+        alt : unsigned(16 downto 0);
         speed : unsigned(9 downto 0);
         heading : unsigned(9 downto 0);
     end record; 
@@ -98,15 +98,15 @@ begin
                             tracker_table(i).callsign <= callsign_w;
                         end if;
     
-                        if not is_empty(lat_w) then
+                        if not is_empty(std_logic_vector(lat_w)) then
                             tracker_table(i).lat <= lat_w;
                         end if;
     
-                        if not is_empty(lon_w) then
+                        if not is_empty(std_logic_vector(lon_w)) then
                             tracker_table(i).lon <= lon_w;
                         end if;
     
-                        if not is_empty(alt_w) then
+                        if not is_empty(std_logic_vector(alt_w)) then
                             tracker_table(i).alt <= alt_w;
                         end if;
     
