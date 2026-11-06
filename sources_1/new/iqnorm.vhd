@@ -10,6 +10,7 @@ entity iqnorm is
         reset : in std_logic;
         data_i : in std_logic_vector(7 downto 0); -- raw I/Q data range 0 to 255
         valid_o : out std_logic;
+        valid_i : in std_logic;
         data_o : out unsigned(7 downto 0) -- normalised magnitude range 0 to 255
     );
 end iqnorm;
@@ -58,18 +59,18 @@ begin
                 first <= '1';
             else
                 valid_o <= '0';
-                if (ready = '0') then
-                    ready <= '1';
-                    -- save the last value
-                    last_data_i <= data_i;
-                else 
-                    ready <= '0';
-                    if (first = '1') then
-                        first <= '0';
-                    else 
-                        -- have a set of I/Q, so return a magnitude
-                        data_o <= sqrt(last_data_i, data_i)(7 downto 0);
-                        valid_o <= '1';
+                if valid_i = '1' then
+                    if (ready = '0') then
+                        ready <= '1';
+                        last_data_i <= data_i;
+                    else
+                        ready <= '0';
+                        if (first = '1') then
+                            first <= '0';
+                        else
+                            data_o <= sqrt(last_data_i, data_i)(7 downto 0);
+                            valid_o <= '1';
+                        end if;
                     end if;
                 end if;
             end if;

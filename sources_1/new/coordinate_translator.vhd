@@ -7,21 +7,17 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity coordinate_translator is 
     generic ( -- 53.381410824758305, -2.1617052169511735
-        HOST_LAT : integer := 6996808; -- lat scaled by 2^17
-        HOST_LON : integer := 283339;
-        H_PIXELS : integer := 640; -- horizontal screen pixel width
-        V_PIXELS : integer := 480 -- vertical screen pixel height
+        REF_LAT : integer := 7006500; -- receiver latitude scaled by 131072
+        REF_LON : integer := -290998 -- 46894922 - 47185920 (decoder wraps lon to signed)
     );
     port (
         clk : in std_logic;
-        reset : in std_logic;
         start : in std_logic;
         lat : in signed(27 downto 0);
         lon : in signed(27 downto 0);
-
-        
-        done : out std_logic;
-        x, y : out std_logic_vector(9 downto 0) -- x and y pixel coordinates in relation to host
+        x : out std_logic_vector(8 downto 0);     -- 0..319
+        y : out std_logic_vector(7 downto 0);     -- 0..239
+        on_screen : out std_logic
     );
 end coordinate_translator;
 
@@ -30,25 +26,21 @@ architecture rtl of coordinate_translator is
 begin
 
     process (clk)
-        variable lat_diff : signed(27 downto 0) := (others => '0');
-        variable lon_diff : signed(27 downto 0) := (others => '0');
+        variable dx, dy, px, py : integer;
     begin
         if rising_edge(clk) then
-            if (reset = '1') then
-                done <= '0';
+            dx := to_integer(lon) - REF_LON;
+            dy := to_integer(lat) - REF_LAT;
+            px := 160 + (dx * 19) / 131072;
+            py := 120 - dy / 4096;
+            if px >= 0 and px < 320 and py >= 0 and py < 240 then
+                x <= std_logic_vector(to_unsigned(px, 9));
+                y <= std_logic_vector(to_unsigned(py, 8));
+                on_screen <= '1';
+            else
                 x <= (others => '0');
                 y <= (others => '0');
-            elsif (start = '1') then 
-                -- assume that lat and lon both have valid values when start pulses
-                -- the vga controller has 640x480 available pixels
-                -- we take the absloute host lat and lon coordinates, and use that as the origin (centre of the screen)
-                -- with the centre of the screen being the host, all we have to do is subtract the absolute difference from the input lat and lon
-                -- centre is (320,240), latitude is x longitude is y
-                lat_diff := abs(lat) - to_signed(V_PIXELS/2, 28);
-                lon_diff := abs(lon) - to_signed(H_PIXELS/2, 28);
-
-                x <= std_logic_vector(lat - lat_diff);
-                y <= std_logic_vector(lon - lon_diff);
+                on_screen <= '0';
             end if;
         end if;
     end process;

@@ -5,6 +5,10 @@ use IEEE.NUMERIC_STD.ALL;
 --use UNISIM.VComponents.all;
 
 entity frame_decoder is
+    generic (
+        REF_LAT : integer := 6996709;
+        REF_LON : integer := 46902564   -- 47185920 - 283356
+    );
     port (
         clk : in std_logic;
         reset : in std_logic;
@@ -14,7 +18,9 @@ entity frame_decoder is
         
         icao : out std_logic_vector(23 downto 0);
         callsign : out string(1 to 8);
-        lat, lon : out signed(27 downto 0);
+        x : out std_logic_vector(8 downto 0);
+        y : out std_logic_vector(7 downto 0);
+        lat, lon : inout signed(27 downto 0);
         speed : out unsigned(9 downto 0);
         alt : out unsigned(16 downto 0);
         heading : out unsigned(9 downto 0)
@@ -170,17 +176,14 @@ architecture rtl of frame_decoder is
     signal pi : std_logic_vector(23 downto 0);
     
     -- decoded data
-    signal lateven : std_logic_vector(16 downto 0) := (others => '0');
-    signal loneven : std_logic_vector(16 downto 0) := (others => '0');
-    signal latodd : std_logic_vector(16 downto 0) := (others => '0');
-    signal lonodd : std_logic_vector(16 downto 0) := (others => '0');
-    signal have_even : std_logic := '0';
-    signal have_odd : std_logic := '0';
+    signal start_translator : std_logic := '0';
+    signal done_translating : std_logic := '0';
 
-
+    constant MAP_LAT : integer := 6996808;
+    constant MAP_LON : integer := -283339;
     
 begin
-    
+
     process (clk)
         
         -- variables for speed and heading
@@ -200,23 +203,22 @@ begin
         -- variables for lon and lat
         constant fact : integer := 199940; -- 6.1016949152542 * 2^15
         variable parity_flag : std_logic := '0';
-        variable YZeven : integer := 0; -- 17 bits multiplied by 17 bits
-        variable YZodd : integer := 0;
-        variable XZeven : integer := 0;
-        variable XZodd : integer := 0;
-        variable numerator : integer := 0;
         variable j : integer := 0;-- two 34 bit multiplied by 5 bits each
-        variable latEnorm : integer := 0;
-        variable latOnorm : integer := 0;
-        variable lonEnorm : integer := 0;
-        variable lonOnorm : integer := 0;
-        variable lat_s : signed(27 downto 0) := (others => '0');
+        
+        variable cpr_lat, cpr_lon : unsigned(16 downto 0);
+        variable prod_lat : unsigned(36 downto 0);  -- 17 bit * 20 bit
+        variable prod_lon : unsigned(42 downto 0);  -- 17 bit * 26 bit
+        variable d_lat, d_lon : integer := 0;
+        variable cprpos_lat, cprpos_lon : integer := 0;
+        variable lat_i, lon_i : integer := 0;
 
         variable m : integer := 0;
         variable mn : integer := 0;
         variable XZlatest : integer := 0;
         variable lon_s : signed(27 downto 0) := (others => '0');
         variable NL_lat : integer := 0;
+        
+        variable px, py : integer := 0;
 
     begin
         if rising_edge(clk) then
@@ -229,15 +231,19 @@ begin
             pi <= frame(23 downto 0);
             done <= '0';
             
-            if (reset = '1') then
+            -- defaults: outputs are only non-zero for the one cycle after done
+            done     <= '0';
+            callsign <= (others => ' ');
+            lat <= (others => '0');
+            lon <= (others => '0');
+            speed    <= (others => '0');
+            alt      <= (others => '0');
+            heading  <= (others => '0');
             
-                done <= '0';
-                callsign <= (others => ' ');
-                lat <= (others => '0');
-                lon <= (others => '0');
-                speed <= (others => '0');
-                heading <= (others => '0');
-                alt <= (others => '0');
+            start_translator <= '0';     
+                   
+            if (reset = '1') then
+                null; -- already cleared
             elsif (start = '1') then 
            
                 if (to_integer(unsigned(frame(111 downto 107))) = 17 or
@@ -273,20 +279,59 @@ begin
                             alt_s := signed(prod(16 downto 0)) - to_signed(1000, 17); 
                             alt <= unsigned(alt_s);
 
-                            -- collect an odd even position pair
+                            -- local decode of this single frame against the receiver position
                             parity_flag := frame(58);
-                            if (parity_flag = '1') then -- odd frame
-
-                                latodd <= frame(57 downto 41);
-                                lonodd <= frame(40 downto 24);
-                                have_odd <= '1';
-                            elsif (parity_flag = '0') then -- even frame
-
-                                lateven <= frame(57 downto 41);
-                                loneven <= frame(40 downto 24);          
-                                have_even <= '1';                      
+                            cpr_lat := unsigned(frame(57 downto 41));
+                            cpr_lon := unsigned(frame(40 downto 24));
+                            
+                            -- latitude: zone size is 6 deg (even) or 360/59 deg (odd), in 2^-17 deg
+                            if parity_flag = '0' then
+                                d_lat := 786432;
+                            else
+                                d_lat := 799761;
                             end if;
-
+                            prod_lat   := cpr_lat * to_unsigned(d_lat, 20);
+                            cprpos_lat := to_integer(prod_lat(36 downto 17));      -- cpr * D / 2^17
+                            j    := (REF_LAT - cprpos_lat + d_lat/2) / d_lat;
+                            lat_i      := j * d_lat + cprpos_lat;
+                            
+                            -- longitude: zone count depends on the decoded latitude
+                            NL_lat := NL(to_signed(lat_i, 28));
+                            if parity_flag = '0' then
+                                mn := NL_lat;
+                            else
+                                mn := NL_lat - 1;
+                            end if;
+                            if mn < 1 then mn := 1; end if;
+                            
+                            d_lon      := 47185920 / mn;                           -- 360 deg * 2^17 / zones
+                            prod_lon   := cpr_lon * to_unsigned(d_lon, 26);
+                            cprpos_lon := to_integer(prod_lon(42 downto 17));
+                            m          := (REF_LON - cprpos_lon + d_lon/2) / d_lon;
+                            lon_i      := m * d_lon + cprpos_lon;
+                            if lon_i > 23592960 then                               -- > 180 deg
+                                lon_i := lon_i - 47185920;
+                            end if;
+                            
+                            lat  <= to_signed(lat_i, 28); -- still keeping lat and lon just in case
+                            lon  <= to_signed(lon_i, 28);
+                            
+                            px := 160 + ((lon_i - MAP_LON) * 19) / 131072;
+                            py := 120 - (lat_i - MAP_LAT) / 4096;
+                            if px >= 0 and px < 320 and py >= 0 and py < 240 then
+                                x <= std_logic_vector(to_unsigned(px, 9));
+                                y <= std_logic_vector(to_unsigned(py, 8));
+                            else
+                                x <= (others => '0');
+                                y <= (others => '0');
+                            end if;
+                            
+                            -- once we have lat and lon, send to coordinate translator using a separate done signal
+                            start_translator <= '1'; 
+                            
+                            done <= '1' when done_translating = '1' else '0'; -- only pulse done when we know coordinate transator has finished translating to local x and y pixels
+                            
+                            
                         when 19 =>
                         
                             -- speed and heading
@@ -308,70 +353,13 @@ begin
                             
                             speed <= sqrt(resize(square(vel_ew) + square(vel_ns), 21)); 
                             heading <= atan2(vel_ns, vel_ew);
+                            done <= '1';
+                            
                         when others =>
                             -- nothing
                             
                     end case;
                 end if;
-            -- decode once you have a pair
-            elsif ((have_even = '1') and (have_odd = '1')) then 
-
-                -- dont divide by 2^17 since already scaled
-                YZeven := to_integer(unsigned(lateven));
-                YZodd  := to_integer(unsigned(latodd));
-                XZeven := to_integer(unsigned(loneven));
-                XZodd  := to_integer(unsigned(lonodd));
-
-                -- lat
-                numerator := 59 * YZeven - 60 * YZodd + 65536; -- 0.5 becomes 2^16 or 65536
-                j         := to_integer(shift_right(to_unsigned(numerator, 22), 17)); -- 2^17 is 131072
-                latEnorm  := 6 * (((j rem 60) * 131072) + YZeven);
-                latOnorm  := ((integer(360 * (j rem 59) * 131072)) / 59) + YZodd;
-                if (parity_flag = '1') then
-
-                    lat_s := to_signed(latEnorm, 28);
-                else
-
-                    lat_s := to_signed(latOnorm, 28);
-                end if;
-                lat <= lat_s;
-                if (lat_s > 270 * 131072) then
-                    lat_s := lat_s - 360 * 131072;
-                    lat <= lat_s - 360 * 131072;
-                end if;
-
-                -- lon
-                NL_lat := NL(lat_s);
-                m := (XZeven * (NL_lat - 1) - XZodd * NL_lat + 65536) / 131072;
-                if (parity_flag = '1') then 
-                    
-                    if (NL_lat - 1 > 1) then   
-                        mn := NL_lat - 1;
-                    else 
-                        mn := 1;
-                    end if;
-                elsif (parity_flag = '0') then
-
-                    if (NL_lat > 1) then 
-                        mn := NL_lat;
-                    else
-                        mn := 1;
-                    end if;
-                end if;
-                if (parity_flag = '1') then    
-                    XZlatest := XZodd;
-                else
-                    XZlatest := XZeven;
-                end if; 
-                lon <= to_signed((360 * ((m mod mn) * 131072 + XZlatest)) / mn, 28);
-
-
-                latodd    <= (others => '0');
-                lonodd    <= (others => '0');
-                lateven   <= (others => '0');
-                loneven   <= (others => '0');
-                have_even <= '0';
-                have_odd  <= '0';
             end if;
         end if;
     end process;

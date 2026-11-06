@@ -14,15 +14,18 @@ entity vga_controller is
         V_PIXELS : integer := 480;
         V_F_PORCH : integer := 10;
         V_S_PULSE : integer := 2;
-        V_B_PORCH : integer := 33
+        V_B_PORCH : integer := 33;
+        
+        X_MAX : integer := 320;
+        Y_MAX : integer := 240
     );
     port (
         clk : in std_logic; -- 25.125 MHz from clock wizard
         reset : in std_logic;
-        x_px : out std_logic_vector(9 downto 0); -- 0 to 640
-        y_px : out std_logic_vector(9 downto 0); -- 0 to 480
+        r_addr : out std_logic_vector(16 downto 0);
         hsync : out std_logic;
         vsync : out std_logic;
+        front_sel : out std_logic;
         active : out std_logic
     );
 end vga_controller;
@@ -35,31 +38,42 @@ architecture rtl of vga_controller is
     signal h_counter : integer range 0 to H_MAX - 1 := 0;
     signal v_counter : integer range 0 to V_MAX - 1 := 0;
     
+    signal vsync_prev : std_logic := '0';
+    
 begin
 
     hsync <= '0' when (h_counter > H_PIXELS + H_F_PORCH - 1) and (h_counter < H_MAX - H_B_PORCH) else '1';
     vsync <= '0' when (v_counter > V_PIXELS + V_F_PORCH - 1) and (v_counter < V_MAX - V_B_PORCH) else '1';
-    x_px <= std_logic_vector(to_unsigned(h_counter, 10)) when (h_counter < H_PIXELS) and (v_counter < V_PIXELS) else (others => '0');
-    y_px <= std_logic_vector(to_unsigned(v_counter, 10)) when (h_counter < H_PIXELS) and (v_counter < V_PIXELS) else (others => '0');
+    r_addr <= std_logic_vector(to_unsigned((((v_counter / 2) * 320) + (h_counter / 2)), 17));
     active <= '1' when (h_counter < H_PIXELS) and (v_counter < V_PIXELS) else '0';
     
     process(clk)
     begin
         if rising_edge(clk) then
+            vsync_prev <= vsync;
             if (reset = '1') then
                 h_counter <= 0;
                 v_counter <= 0;
-            else
+                front_sel <= '0';
+                
+            else -- since there are 320x240 addresses, that means that every four pixels in a square in 640x480 shares the same framebuffer address 
+                if (vsync = '0' and vsync_prev = '1') then
+                    front_sel <= not front_sel;
+                end if;
+            
                 if (h_counter = H_MAX - 1) then
                     h_counter <= 0;
+
                     if (v_counter = V_MAX - 1) then
                         v_counter <= 0;
                     else 
                         v_counter <= v_counter + 1; -- counts complete horizontals
                     end if;
+                    
                 else
                     h_counter <= h_counter + 1;
                 end if; 
+                
             end if;
         end if;
     end process;
